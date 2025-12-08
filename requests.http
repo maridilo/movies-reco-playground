@@ -1,0 +1,55 @@
+### Ping
+GET http://localhost:8080/api/v1/ping
+
+### Recomendaciones sin filtro (BD + CB + Pop)
+GET http://localhost:8080/api/v1/users/00000000-0000-0000-0000-000000000001/recommendations?topK=5
+
+### Filtrado por Sci-Fi desde 2000
+GET http://localhost:8080/api/v1/users/00000000-0000-0000-0000-000000000001/recommendations?topK=5&genre=Sci-Fi&minYear=2000
+
+### Similares a The Matrix
+GET http://localhost:8080/api/v1/movies/00000000-0000-0000-0000-000000000101/similar?topK=5
+
+### Valorar Toy Story con 5 (guarda en BD)
+POST http://localhost:8080/api/v1/movies/00000000-0000-0000-0000-000000000104/ratings
+Content-Type: application/json
+
+{ "userId": "00000000-0000-0000-0000-000000000001", "score": 5, "comment": "animación top" }
+
+### Recomendaciones tras valorar (perfil recalculado con JPA)
+GET http://localhost:8080/api/v1/users/00000000-0000-0000-0000-000000000001/recommendations?topK=5
+
+### CF
+GET http://localhost:8080/api/v1/users/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/recommendations/cf?limit=10&neighbors=30
+
+### Híbrido (CB+CF)
+GET http://localhost:8080/api/v1/users/aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa/recommendations/hybrid?limit=10&neighbors=30&alpha=0.6
+
+### Cuenta (requiere Authorization: Basic ...)
+GET http://localhost:8080/api/me
+Content-Type: application/json
+
+# 1) Registro
+###
+POST http://localhost:8080/api/auth/register
+Content-Type: application/json
+
+{ "email":"alice@example.com", "name":"Alice", "password":"secret123" }
+###
+# 2) Login → token
+
+POST http://localhost:8080/api/auth/login
+Content-Type: application/json
+
+{ "email":"alice@example.com", "password":"secret123" }
+###
+# 3) Usar token
+GET http://localhost:8080/api/auth/me
+Authorization: Bearer <TOKEN>
+###
+# 4) Probar acceso a endpoints protegidos
+GET http://localhost:8080/api/ratings/by-user/00000000-0000-0000-0000-000000000001
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+
+
+
