@@ -3,6 +3,7 @@ package com.acme.reco.api.service;
 import com.acme.reco.persistence.entity.MovieEntity;
 import com.acme.reco.persistence.repo.MovieJpaRepository;
 import com.acme.reco.persistence.repo.RatingJpaRepository;
+import org.springframework.cache.annotation.Cacheable;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 
@@ -21,11 +22,13 @@ public class StatsService {
         this.movies  = movies;
     }
 
+    @Cacheable(value = "stats", key = "'topByAvg_'+#min+'_'+#k")
     public List<TopMovieStat> topByAvg(int k) {
         var list = ratings.topByAvg(PageRequest.of(0, Math.max(1, k)));
         return map(list);
     }
 
+    @Cacheable(value = "stats", key = "'topByCount_'+#k")
     public List<TopMovieStat> topByCount(int k) {
         var list = ratings.topByCount(PageRequest.of(0, Math.max(1, k)));
         return map(list);

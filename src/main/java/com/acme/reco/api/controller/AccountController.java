@@ -3,18 +3,22 @@ package com.acme.reco.api.controller;
 import com.acme.reco.persistence.entity.AppUser;
 import com.acme.reco.persistence.repo.AppUserRepository;
 import com.acme.reco.persistence.repo.RatingJpaRepository;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.userdetails.User;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
+import java.util.UUID;
 
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/me")
+@RequestMapping("/api/account")
 public class AccountController {
 
     private final AppUserRepository users;
@@ -27,52 +31,40 @@ public class AccountController {
         this.encoder = encoder;
     }
 
-    @GetMapping
-    public ResponseEntity<Map<String, Object>> me(@AuthenticationPrincipal User principal) {
-        var u = users.findByEmail(principal.getUsername()).orElse(null);
-        if (u == null) return ResponseEntity.notFound().build();
-        return ResponseEntity.ok(Map.of(
-                "id", u.getId(),
-                "email", u.getEmail(),
-                "name", u.getName(),
-                "role", u.getRole()
-        ));
+    public record MeDTO(UUID id, String email, String name, String role) {}
+    public record UpdateNameDTO(@NotBlank @Size(min=3,max=60) String name) {}
+    public record ChangePasswordDTO(@NotBlank String currentPassword, @NotBlank @Size(min=6,max=120) String newPassword) {}
+
+    @GetMapping("/me")
+    public ResponseEntity<MeDTO> me(Authentication auth) {
+        var u = users.findByEmail(auth.getName()).orElseThrow();
+        return ResponseEntity.ok(new MeDTO(u.getId(), u.getEmail(), u.getName(), u.getRole()));
     }
 
-    public record UpdateProfile(@NotBlank @Size(min=3,max=60) String name) {}
-
-    @PutMapping
-    public ResponseEntity<Void> update(@AuthenticationPrincipal User principal,
-                                       @RequestBody UpdateProfile body) {
-        var u = users.findByEmail(principal.getUsername()).orElse(null);
-        if (u == null) return ResponseEntity.notFound().build();
-        u.setName(body.name());
+    @PutMapping("/me")
+    public ResponseEntity<Void> updateName(Authentication auth, @Valid @RequestBody UpdateNameDTO dto) {
+        var u = users.findByEmail(auth.getName()).orElseThrow();
+        u.setName(dto.name());
         users.save(u);
         return ResponseEntity.noContent().build();
     }
-
-    public record ChangePassword(@NotBlank String currentPassword,
-                                 @NotBlank @Size(min=6,max=120) String newPassword) {}
 
     @PutMapping("/password")
-    public ResponseEntity<Void> changePassword(@AuthenticationPrincipal User principal,
-                                               @RequestBody ChangePassword body) {
-        var u = users.findByEmail(principal.getUsername()).orElse(null);
-        if (u == null) return ResponseEntity.notFound().build();
-        if (!encoder.matches(body.currentPassword(), u.getPasswordHash())) {
-            return ResponseEntity.status(403).build();
+    public ResponseEntity<Void> changePassword(Authentication auth, @Valid @RequestBody ChangePasswordDTO dto) {
+        var u = users.findByEmail(auth.getName()).orElseThrow();
+        if (!encoder.matches(dto.currentPassword(), u.getPasswordHash())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
-        u.setPasswordHash(encoder.encode(body.newPassword()));
+        u.setPasswordHash(encoder.encode(dto.newPassword()));
         users.save(u);
         return ResponseEntity.noContent().build();
     }
 
-    @DeleteMapping
-    public ResponseEntity<Void> delete(@AuthenticationPrincipal User principal) {
-        var u = users.findByEmail(principal.getUsername()).orElse(null);
-        if (u == null) return ResponseEntity.notFound().build();
-        ratings.deleteAllByIdUserId(u.getId());
-        users.delete(u);
+    @DeleteMapping("/me")
+    public ResponseEntity<Void> deleteMe(Authentication auth) {
+        var u = users.findByEmail(auth.getName()).orElseThrow();
+        ratings.deleteAllByIdUserId(u.getId());  // asegúrate de tener este método en el repo
+        users.deleteById(u.getId());
         return ResponseEntity.noContent().build();
     }
 }

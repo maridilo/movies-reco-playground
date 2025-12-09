@@ -44,14 +44,12 @@ public class SecurityConfig {
                 .cors(Customizer.withDefaults())
                 .sessionManagement(sm -> sm.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        // abiertos
                         .requestMatchers("/h2-console/**", "/swagger-ui/**", "/swagger-ui.html", "/v3/api-docs/**").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/movies/**").permitAll()
-                        .requestMatchers("/api/auth/**").permitAll()
-                        // admin
+                        .requestMatchers("/api/billing/plans").permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                        // el resto, autenticado
-                        .anyRequest().authenticated()
+                        .requestMatchers("/api/billing/**").authenticated()
+                        .requestMatchers(org.springframework.http.HttpMethod.GET, "/api/movies/**").permitAll()
+                        .anyRequest().permitAll()
                 );
 
         // Filtro JWT antes del de usuario/contraseña
