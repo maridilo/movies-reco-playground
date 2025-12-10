@@ -9,7 +9,15 @@ import com.acme.reco.persistence.repo.PlanRepository;
 import com.acme.reco.persistence.repo.SubscriptionRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
+import com.acme.reco.api.dto.IncomeStatDTO;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.time.YearMonth;
+import java.time.ZoneOffset;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
@@ -92,5 +100,44 @@ public class BillingService {
     @Transactional(readOnly = true)
     public List<InvoiceEntity> userInvoices(UUID userId) {
         return invoicerepository.findAllByUserIdOrderByCreatedAtDesc(userId);
+    }
+
+    @Transactional(readOnly = true)
+    public List<IncomeStatDTO> incomeLastMonths(int months) {
+        if (months <= 0) {
+            months = 6;
+        }
+
+        // Fecha mínima (inicio del mes N meses atrás)
+        YearMonth nowYm = YearMonth.now(ZoneOffset.UTC);
+        YearMonth minYm = nowYm.minusMonths(months - 1);
+        LocalDate minDate = minYm.atDay(1);
+        Instant minInstant = minDate.atStartOfDay().toInstant(ZoneOffset.UTC);
+
+        // Cargamos todas las facturas desde esa fecha
+        List<InvoiceEntity> invoices = invoicerepository.findAll().stream()
+                .filter(inv -> inv.getCreatedAt() != null && !inv.getCreatedAt().isBefore(minInstant))
+                .toList();
+
+        // Agrupamos por YearMonth y sumamos amountCents
+        Map<YearMonth, Long> totals = invoices.stream()
+                .collect(Collectors.groupingBy(
+                        inv -> {
+                            LocalDate d = inv.getCreatedAt().atZone(ZoneOffset.UTC).toLocalDate();
+                            return YearMonth.of(d.getYear(), d.getMonth());
+                        },
+                        Collectors.summingLong(inv -> inv.getAmountCents()
+                ))
+                );
+
+        // Construimos lista ordenada cronológicamente
+        return totals.entrySet().stream()
+                .sorted(Comparator.comparing(Map.Entry::getKey))
+                .map(e -> new IncomeStatDTO(
+                        e.getKey().getYear(),
+                        e.getKey().getMonthValue(),
+                        e.getValue()
+                ))
+                .toList();
     }
 }
